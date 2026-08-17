@@ -424,6 +424,17 @@ bool Sql_cmd_update::update_single_table(THD *thd)
     DBUG_RETURN(1);
   }
   
+  if (ignore && with_returning_into())
+  {
+    /*
+      A row rejected by the engine is ignored, so it is not known before
+      ha_update_row() if the row is a second changed row.
+    */
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+             "UPDATE IGNORE..RETURNING..INTO");
+    DBUG_RETURN(1);
+  }
+
   table->opt_range_keys.clear_all();
 
   query_plan.select_lex= thd->lex->first_select_lex();
@@ -511,8 +522,7 @@ bool Sql_cmd_update::update_single_table(THD *thd)
       thd->lex->current_select->first_cond_optimization= 0;
     }
 
-    my_ok(thd);				// No matching records
-    DBUG_RETURN(0);
+    DBUG_RETURN(send_ok_no_matching_records(thd));
   }
 #endif
   /* Update the table->file->stats.records number */
@@ -555,8 +565,7 @@ bool Sql_cmd_update::update_single_table(THD *thd)
       thd->lex->current_select->first_cond_optimization= 0;
     }
 
-    my_ok(thd);				// No matching records
-    DBUG_RETURN(0);
+    DBUG_RETURN(send_ok_no_matching_records(thd));
   }
 
   /* If running in safe sql mode, don't allow updates without keys */
@@ -968,6 +977,17 @@ update_begin:
   table->reset_default_fields();
 
   /*
+    RETURNING..INTO raises ER_TOO_MANY_ROWS before ha_update_row(), so an
+    unchanged row must be told from a changed one by compare_record().
+    Make the engine read all updated columns (MDEV-42212).
+  */
+  if (with_returning_into() &&
+      (table->file->ha_table_flags() & HA_PARTIAL_COLUMN_READ))
+  {
+    bitmap_union(table->read_set, table->write_set);
+    table->file->column_bitmaps_signal(true);
+  }
+  /*
     We can use compare_record() to optimize away updates if
     the table handler is returning all columns OR if
     if all updated columns are read
@@ -1042,6 +1062,17 @@ update_begin:
             break;
           }
         }
+        if (updated == 1 && with_returning_into())
+        {
+          /*
+            RETURNING..INTO accepts only one row.
+            A second changed row has been found.
+            Raise the error and break without updating the second record.
+          */
+          error= 1;
+          my_error(ER_TOO_MANY_ROWS, MYF(0));
+          break;
+        }
         if (will_batch)
         {
           /*
@@ -1084,8 +1115,13 @@ update_begin:
                                             table->record[0]);
         }
 
+        /*
+          send_data() returns 0 on success, 1 on error (e.g. a failed
+          assignment to an INTO target), and -1 if the row is ignored.
+        */
         if (likely(!error) && thd->lex->has_returning() &&
-            returning_result->send_data(thd->lex->returning()->returning_list) < 0)
+            returning_result->send_data(
+              thd->lex->returning()->returning_list) != 0)
         {
           error= 1;
           break;
@@ -1360,7 +1396,15 @@ update_end:
             (thd->client_capabilities & CLIENT_FOUND_ROWS) ? found : updated);
 
     if (thd->lex->has_returning())
+    {
+      /*
+        With no rows to process, RETURNING..INTO raises a warning
+        (and not an error), even in the strict mode. The reset is done
+        for every RETURNING.
+      */
+      thd->abort_on_warning= 0;
       returning_result->send_eof();
+    }
     else
       my_ok(thd, (thd->client_capabilities & CLIENT_FOUND_ROWS) ?
                   found : updated, id, buff);
@@ -1423,6 +1467,24 @@ produce_explain_and_leave:
   delete select;
   free_underlaid_joins(thd, select_lex);
   DBUG_RETURN((thd->is_error()) ? 1 : 0);
+}
+
+
+bool Sql_cmd_update::send_ok_no_matching_records(THD *thd)
+{
+  if (with_returning_into())
+  {
+    /*
+      UPDATE..RETURNING..INTO with no rows to process: the INTO targets
+      are not changed. send_eof() raises a warning ("No data") and sends OK.
+      The warning must not be an error, even in the strict mode, so do not
+      depend on the caller having reset abort_on_warning.
+    */
+    thd->abort_on_warning= 0;
+    return returning_result->send_eof();
+  }
+  my_ok(thd);
+  return false;
 }
 
 
@@ -3043,6 +3105,46 @@ bool multi_update::send_eof()
 
 
 /**
+  @brief    Set the RETURNING..INTO target list
+  @returns  true on error, false on success
+*/
+bool Sql_cmd_update::set_returning_into_result(select_dumpvar *res)
+{
+  /*
+    Due to the implementation, OLD_VALUE() in the RETURNING list would
+    return the new value into the INTO target (not the old value), because
+    the old value is read only when the row is sent to the client.
+    Disallow it.
+  */
+  if (m_with_old_value_items)
+  {
+    my_error(ER_WRONG_USAGE, MYF(0), "OLD_VALUE(..)", "RETURNING..INTO");
+    return true;
+  }
+  m_returning_into= res;
+  return false;
+}
+
+
+/**
+  @brief Check if this UPDATE statement returns a result set
+*/
+bool Sql_cmd_update::returns_result_set() const
+{
+  DBUG_ASSERT(lex->m_sql_cmd == this);
+  if (lex->describe || lex->analyze_stmt)
+    return true; // E.g. EXPLAIN UPDATE t1 SET a=a+1;
+
+  if (!lex->has_returning())
+    return false; // e.g. UPDATE t1 SET a=a+1;
+
+  if (with_returning_into())
+    return false; // e.g. UPDATE t1 SET a=a+1 RETURNING a INTO @a;
+
+  return true; // e.g. UPDATE t1 SET a=a+1 RETURNING a;
+}
+
+/**
   @brief Check whether conversion to multi-table update is prohibited
 
   @param thd  global context the processed statement
@@ -3292,26 +3394,78 @@ bool Sql_cmd_update::execute_inner(THD *thd)
   {
     if (lex->has_returning())
     {
-      /* This is UPDATE ... RETURNING.  It will return output to the client */
+      /*
+        This is UPDATE ... RETURNING. Without INTO it returns the output
+        to the client, with INTO it assigns the INTO targets.
+      */
       if (thd->lex->analyze_stmt)
       {
+        /*
+          Queries with INTO clause like:
+            ANALYZE UPDATE t1 SET a=a+1 RETURNING a INTO @a;
+          are rejected earlier, in LEX::set_returning_into_result().
+        */
+        DBUG_ASSERT(!m_returning_into);
         if (!(returning_result= new (thd->mem_root) select_send_analyze(thd)))
         {
           return true;
         }
         save_protocol= thd->protocol;
         thd->protocol= new Protocol_discard(thd);
+        // select_send_analyze::prepare() cannot fail
+        (void) returning_result->prepare(thd->lex->returning()->returning_list,
+                                         NULL);
       }
       else
       {
-        if (!(returning_result= new
-                        (thd->mem_root) select_send(thd)))
+        if (!m_returning_into)
         {
-          return true;
+          // UPDATE t1 SET a=a+1 RETURNING a;
+          if (!(returning_result= new (thd->mem_root) select_send(thd)))
+            return true;
+          // select_send::prepare() cannot fail
+          (void) returning_result->prepare(
+                                         thd->lex->returning()->returning_list,
+                                         NULL);
+        }
+        else
+        {
+          // UPDATE t1 SET a=a+1 RETURNING a INTO @a;
+          // UPDATE t1 SET a=a+1 RETURNING a INTO spvar;
+          DBUG_ASSERT(!lex->describe); // EXPLAIN - rejected earlier
+          returning_result= m_returning_into;
+          /*
+            To replicate a statement like:
+              UPDATE t1 SET a=a+1 RETURNING a INTO spvar; -- notice SP variable
+            we would need to cut the 'INTO spvar' part.
+            Let's disallow BINLOG_FORMAT_STMT for now for simplicity.
+          */
+          if (!thd->is_current_stmt_binlog_disabled() &&
+              thd->variables.binlog_format == BINLOG_FORMAT_STMT)
+          {
+            my_error(ER_WRONG_USAGE, MYF(0), "--binlog-format=statement",
+                     "RETURNING..INTO");
+            return true;
+          }
+          /*
+            The below call can fail e.g. in case of a mismatch between the
+            number of columns (i.e. N!=M) in:
+              UPDATE..RETURNING <N expressions> INTO <M targets>
+          */
+          if (returning_result->prepare(thd->lex->returning()->returning_list,
+                                        NULL))
+            return true;
         }
       }
-      if (thd->lex->has_returning())
-        (void) returning_result->prepare(thd->lex->returning()->returning_list, NULL);
+    }
+  }
+  else
+  {
+    // RETURNING INTO is not supported for multi-table UPDATEs
+    if (with_returning_into())
+    {
+      my_error(ER_NOT_ALLOWED_IN_THIS_CONTEXT, MYF(0), "RETURNING..INTO");
+      return true;
     }
   }
 
@@ -3345,6 +3499,12 @@ bool Sql_cmd_update::execute_inner(THD *thd)
       res= thd->lex->explain->send_explain(thd, extended);
     }
   }
+
+  /*
+    returning_result is valid only during an execution: it can point to
+    a select_send or select_send_analyze instance created above.
+  */
+  returning_result= nullptr;
 
   if (result)
   {

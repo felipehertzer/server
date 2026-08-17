@@ -630,7 +630,8 @@ Query_tables_list::binlog_stmt_unsafe_errcode[BINLOG_STMT_UNSAFE_COUNT] =
     non-GA release.
   */
   ER_BINLOG_UNSAFE_SYSTEM_VARIABLE,
-  ER_BINLOG_UNSAFE_SKIP_LOCKED
+  ER_BINLOG_UNSAFE_SKIP_LOCKED,
+  ER_BINLOG_UNSAFE_CLAUSE
 };
 
 
@@ -14277,6 +14278,28 @@ LEX::parse_optimizer_hints(const Lex_comment_st &hints_str)
 
   // Hints were not empty and were parsed without errors
   return {false, new (thd->mem_root) Optimizer_hint_parser_output(std::move(hints))};
+}
+
+
+bool LEX::set_returning_into_result(select_dumpvar *res)
+{
+  if (!analyze_stmt && !describe)
+  {
+    DBUG_ASSERT(res);
+    if (Sql_cmd_dml *dml= dynamic_cast<Sql_cmd_dml*>(m_sql_cmd))
+    {
+      // UPDATE; the other commands raise an error
+      if (dml->set_returning_into_result(res))
+        return true;
+      // The order of rows is not predictable, like in SELECT..LIMIT
+      set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_RETURNING_INTO);
+      return false;
+    }
+    // REPLACE, INSERT have no Sql_cmd_xxx yet
+  }
+
+  my_error(ER_NOT_ALLOWED_IN_THIS_CONTEXT, MYF(0), "RETURNING..INTO");
+  return true;
 }
 
 
