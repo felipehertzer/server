@@ -14,7 +14,7 @@ connect  con1,localhost,root,,;
 CALL gen_load();
 connection default;
 *** Doing backup...
-BACKUP SERVER TO '$datadir_2' 4 CONCURRENT;
+BACKUP SERVER TO '$datadir_2' 4 CONCURRENT OPTIONS BINLOG=MINIMAL;
 *** Stop the background load...
 UPDATE t2 SET val=1;
 connection con1;

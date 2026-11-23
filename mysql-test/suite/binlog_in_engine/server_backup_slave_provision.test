@@ -55,7 +55,7 @@ send CALL gen_load();
 --sleep 2
 --connection default
 --echo *** Doing backup...
-evalp BACKUP SERVER TO '$datadir_2' 4 CONCURRENT;
+evalp BACKUP SERVER TO '$datadir_2' 4 CONCURRENT OPTIONS BINLOG=MINIMAL;
 
 --echo *** Stop the background load...
 # A bit of time for extra data to accumulate for replicating to the newly provisioned slave.

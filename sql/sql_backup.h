@@ -17,15 +17,26 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #pragma once
 
+#include "sql_cmd.h"
+
+
 /** BACKUP SERVER */
 class Sql_cmd_backup : public Sql_cmd
 {
+public:
+  enum enum_binlog_option {
+    BINLOG_FULL, BINLOG_MINIMAL, BINLOG_NONE
+  };
+
+private:
   /** target directory, or nullptr when streaming */
   const char *const target{nullptr};
   /** argument of my_popen() for streaming backup, or nullptr */
   const char *const command{nullptr};
   /** number of concurrent threads to use */
   const int threads;
+  /** option for backing up binlog files */
+  enum_binlog_option m_binlog_option{BINLOG_FULL};
 
 public:
   /**
@@ -50,4 +61,5 @@ public:
   {
     return SQLCOM_BACKUP_SERVER;
   }
+  void binlog_option(enum_binlog_option val) { m_binlog_option= val; }
 };

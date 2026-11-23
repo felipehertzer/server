@@ -28,7 +28,8 @@
 #include <unordered_map>
 
 static bool backup_execute(THD *thd, const char *target, const char *command,
-                           int threads);
+                           int threads,
+                           Sql_cmd_backup::enum_binlog_option binlog_opt);
 
 /**
    @brief BACKUP SERVER command
@@ -65,7 +66,7 @@ static bool backup_execute(THD *thd, const char *target, const char *command,
 */
 bool Sql_cmd_backup::execute(THD *thd)
 {
-  return backup_execute(thd, target, command, threads);
+  return backup_execute(thd, target, command, threads, m_binlog_option);
 }
 
 #ifdef _WIN32
@@ -919,10 +920,13 @@ static bool backup_steps(THD *thd, backup_target_stage *target_stage,
    @return whether the operation failed
 */
 static bool backup_execute(THD *thd, const char *target, const char *command,
-                           int threads)
+                           int threads,
+                           Sql_cmd_backup::enum_binlog_option binlog_opt)
 {
   assert(!!target == !command);
   assert(threads > 0);
+  bool binlog_skip= (binlog_opt == Sql_cmd_backup::BINLOG_NONE);
+  bool binlog_minimal= (binlog_opt == Sql_cmd_backup::BINLOG_MINIMAL);
 
   if (!target)
   {
@@ -1033,7 +1037,8 @@ static bool backup_execute(THD *thd, const char *target, const char *command,
 # endif
 #endif
       new (&target_stage[threads - t])
-        backup_target_stage{backup_target{IF_WIN(nullptr, -1)},
+        backup_target_stage{backup_target{IF_WIN(nullptr, -1),
+                                          binlog_skip, binlog_minimal},
           BACKUP_START, backup_sink{t - 1, sink, nullptr}, f, 0, context};
     }
   }
@@ -1052,7 +1057,8 @@ static bool backup_execute(THD *thd, const char *target, const char *command,
     for (int t{threads}; t--; )
     {
       new (&target_stage[threads - 1 - t])
-        backup_target_stage{backup_target{IF_WIN(target, dir)},
+        backup_target_stage{backup_target{IF_WIN(target, dir),
+                                          binlog_skip, binlog_minimal},
           BACKUP_START, backup_sink{t, backup_sink::NO_STREAM, nullptr},
           nullptr, 0, context};
     }

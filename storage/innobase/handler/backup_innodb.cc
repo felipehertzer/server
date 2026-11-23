@@ -1277,19 +1277,26 @@ public:
      Determine the logical time of the backup snapshot.
      @return whether the operation failed
   */
-  bool commit() noexcept
+  bool commit(const backup_target &target) noexcept
   {
-    /*
-      Take locks to synchronize the last binlog file copied with the
-      backup LSN. */
-    mysql_mutex_lock(&purge_binlog_mutex);
-    ctx.start_binlog_file_no= ibb_get_backup_start(false);
-    mysql_mutex_lock(&active_binlog_mutex);
-    mysql_mutex_unlock(&purge_binlog_mutex);
-    ctx.end_binlog_file_no= active_binlog_file_no.load(std::memory_order_relaxed);
+    if (!target.binlog_skip)
+    {
+      /*
+        Take locks to synchronize the last binlog file copied with the
+        backup LSN. */
+      mysql_mutex_lock(&purge_binlog_mutex);
+      ctx.start_binlog_file_no= ibb_get_backup_start(target.binlog_minimal);
+      mysql_mutex_lock(&active_binlog_mutex);
+      mysql_mutex_unlock(&purge_binlog_mutex);
+      ctx.end_binlog_file_no=
+        active_binlog_file_no.load(std::memory_order_relaxed);
 
-    log_sys.latch.wr_lock();
-    mysql_mutex_unlock(&active_binlog_mutex);
+      log_sys.latch.wr_lock();
+      mysql_mutex_unlock(&active_binlog_mutex);
+    }
+    else
+      log_sys.latch.wr_lock();
+
     mutex.wr_lock();
     ut_ad(!non_log);
     ut_ad(ctx.state == PROCESSING);
@@ -2826,7 +2833,7 @@ void *innodb_backup_start(THD *thd, const backup_target *target,
   case BACKUP_START:
     return innodb_backup.init(thd, *target, *sink);
   case BACKUP_LOCK_COMMIT:
-    if (innodb_backup.commit())
+    if (innodb_backup.commit(*target))
       return reinterpret_cast<void*>(-1);
     /* fall through */
   default:

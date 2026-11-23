@@ -34,6 +34,9 @@ struct backup_target
   int fd;
   bool operator==(const backup_target &o) const { return fd == o.fd; }
 #endif
+  /** Options for binlog backup */
+  bool binlog_skip;
+  bool binlog_minimal;
 
   /**
      Create a subdirectory in the target directory if it does not exist.
