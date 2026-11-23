@@ -8,7 +8,7 @@ INSERT INTO t1 SELECT seq, REPEAT('a', 200) FROM seq_1_to_1000;
 SET @save_dbug= @@GLOBAL.debug_dbug;
 # A page that is torn once is read again.
 SET GLOBAL debug_dbug='+d,aria_backup_torn_read';
-BACKUP SERVER TO 'MYSQLTEST_VARDIR/bk' 2 CONCURRENT;
+BACKUP SERVER TO 'MYSQLTEST_VARDIR/bk' OPTIONS CONCURRENT=2;
 SET GLOBAL debug_dbug= @save_dbug;
 # A page that is torn on every read makes BACKUP SERVER fail.
 SET GLOBAL debug_dbug='+d,aria_backup_torn_read_always';

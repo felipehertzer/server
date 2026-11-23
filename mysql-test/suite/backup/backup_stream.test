@@ -36,7 +36,7 @@ DELETE FROM t;
 if ($have_debug) {
 SET DEBUG_SYNC='innodb_backup_start SIGNAL start WAIT_FOR resume';
 }
-send_eval BACKUP SERVER WITH 2 CONCURRENT 'cat';
+send_eval BACKUP SERVER WITH 'cat' OPTIONS CONCURRENT=2;
 --connection default
 if ($have_debug) {
 SET DEBUG_SYNC='now WAIT_FOR start';

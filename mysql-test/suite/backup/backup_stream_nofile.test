@@ -22,9 +22,9 @@ system("prlimit", "--pid=$pid", "--nofile=$n:") == 0 or die "prlimit";
 EOF
 
 --error ER_DATA_OUT_OF_RANGE
-BACKUP SERVER WITH 257 CONCURRENT 'cat';
+BACKUP SERVER WITH 'cat' OPTIONS CONCURRENT=257;
 --error ER_OUT_OF_RESOURCES
-BACKUP SERVER WITH 256 CONCURRENT 'cat';
+BACKUP SERVER WITH 'cat' OPTIONS CONCURRENT=256;
 
 --source $MYSQLTEST_VARDIR/tmp/restore_nofile
 --remove_file $MYSQLTEST_VARDIR/tmp/restore_nofile

@@ -56,7 +56,7 @@ SELECT GET_LOCK('run', 0);
 --source include/wait_condition.inc
 --let $wait_condition= SELECT COUNT(*) > 1000 FROM t2
 --source include/wait_condition.inc
-BACKUP SERVER WITH 2 CONCURRENT 'cat';
+BACKUP SERVER WITH 'cat' OPTIONS CONCURRENT=2;
 --let $after= `SELECT COUNT(*) FROM t1`
 SELECT RELEASE_LOCK('run');
 

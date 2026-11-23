@@ -32,7 +32,7 @@ CALL p1();
 connect w2,localhost,root;
 CALL p2();
 connection default;
-BACKUP SERVER WITH 2 CONCURRENT 'cat';
+BACKUP SERVER WITH 'cat' OPTIONS CONCURRENT=2;
 SELECT RELEASE_LOCK('run');
 RELEASE_LOCK('run')
 1

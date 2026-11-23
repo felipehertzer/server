@@ -26,7 +26,7 @@ SET @save_dbug= @@GLOBAL.debug_dbug;
 --echo # A page that is torn once is read again.
 SET GLOBAL debug_dbug='+d,aria_backup_torn_read';
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---eval BACKUP SERVER TO '$MYSQLTEST_VARDIR/bk' 2 CONCURRENT
+--eval BACKUP SERVER TO '$MYSQLTEST_VARDIR/bk' OPTIONS CONCURRENT=2
 SET GLOBAL debug_dbug= @save_dbug;
 
 --echo # A page that is torn on every read makes BACKUP SERVER fail.

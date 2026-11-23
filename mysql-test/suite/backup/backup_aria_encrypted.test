@@ -28,7 +28,7 @@ SELECT COUNT(*), SUM(id) FROM at0;
 --error 0,1
 --rmdir $target_directory
 
-evalp BACKUP SERVER TO '$target_directory' 4 CONCURRENT;
+evalp BACKUP SERVER TO '$target_directory' OPTIONS CONCURRENT=4;
 
 --echo #
 --echo # The Aria log files have to be part of the backup

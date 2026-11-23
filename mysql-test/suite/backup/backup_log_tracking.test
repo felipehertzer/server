@@ -43,7 +43,7 @@ SET GLOBAL debug_dbug='+d,ib_log_checkpoint_avoid';
 --connect backup,localhost,root
 SET DEBUG_SYNC='innodb_backup_start SIGNAL started WAIT_FOR go';
 --replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
---send_eval BACKUP SERVER TO '$MYSQL_TMP_DIR/backup_log_track' 2 CONCURRENT
+--send_eval BACKUP SERVER TO '$MYSQL_TMP_DIR/backup_log_track' OPTIONS CONCURRENT=2
 --connection default
 SET DEBUG_SYNC='now WAIT_FOR started';
 

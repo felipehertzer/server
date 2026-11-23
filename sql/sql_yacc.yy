@@ -1504,7 +1504,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, size_t *yystacksize);
 %type <json_on_response> json_on_response
 
 %type <ulong_num> json_type_constraint
-%type <num> json_key_unique_constraint opt_concurrent
+%type <num> json_key_unique_constraint
 %type <json_predicate> json_predicate
 
 %type <Lex_field_type> field_type field_type_all field_type_all_builtin
@@ -15849,35 +15849,20 @@ backup_statements:
 	    /* Table list is empty for unlock */
             Lex->sql_command= SQLCOM_BACKUP_LOCK;
           }
-        | SERVER_SYM TO_SYM TEXT_STRING_sys opt_concurrent
+        | SERVER_SYM TO_SYM TEXT_STRING_sys
           {
             Lex->sql_command= SQLCOM_BACKUP_SERVER;
-            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_backup($3, $4);
+            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_backup($3, 1);
           }
 	  opt_backup_options
 	  { }
-        | SERVER_SYM WITH opt_concurrent TEXT_STRING_sys
+        | SERVER_SYM WITH TEXT_STRING_sys
           {
             Lex->sql_command= SQLCOM_BACKUP_SERVER;
-            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_backup($3, $4);
+            Lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_backup(1, $3);
           }
 	  opt_backup_options
 	  { }
-        ;
-
-opt_concurrent:
-        /* empty */
-        { $$= 1; }
-        | ulonglong_num CONCURRENT
-        {
-          $$= int($1);
-          if ($1 < 1 || $1 > 256)
-          {
-            my_error(ER_DATA_OUT_OF_RANGE, myf(0), "CONCURRENT",
-                     "BACKUP SERVER");
-            MYSQL_YYABORT;
-          }
-        }
         ;
 
 opt_backup_options:
@@ -15906,6 +15891,16 @@ backup_option:
 	    }
 	    static_cast<Sql_cmd_backup *>(Lex->m_sql_cmd)->binlog_option($3);
 	  }
+        | CONCURRENT '=' ulonglong_num
+        {
+	  static_cast<Sql_cmd_backup *>(Lex->m_sql_cmd)->concurrent(int($3));
+          if ($3 < 1 || $3 > 256)
+          {
+            my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "CONCURRENT",
+                     "BACKUP SERVER");
+            MYSQL_YYABORT;
+          }
+        }
         ;
 
 backup_binlog_option:

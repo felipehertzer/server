@@ -16,7 +16,7 @@ COUNT(*)	SUM(id)
 SELECT COUNT(*), SUM(id) FROM at0;
 COUNT(*)	SUM(id)
 10000	50005000
-BACKUP SERVER TO '$target_directory' 4 CONCURRENT;
+BACKUP SERVER TO '$target_directory' OPTIONS CONCURRENT=4;
 #
 # The Aria log files have to be part of the backup
 #

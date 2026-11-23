@@ -16,8 +16,8 @@ a	b
 1	
 BACKUP SERVER TO '$target_directory' WITH '/bin/false';
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WITH '/bin/false'' at line 1
-BACKUP SERVER TO '$target_directory' WITH 4 CONCURRENT '/bin/false';
-ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WITH 4 CONCURRENT '/bin/false'' at line 1
+BACKUP SERVER TO '$target_directory' WITH '/bin/false' OPTIONS CONCURRENT=4;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WITH '/bin/false' OPTIONS CONCURRENT=4' at line 1
 BACKUP SERVER WITH '/bin/false';
 ERROR HY000: Incorrect arguments to BACKUP SERVER WITH
 BACKUP SERVER WITH 'no-such-command';
@@ -28,7 +28,7 @@ connect backup,localhost,root;
 connect rename,localhost,root;
 RENAME TABLE rt TO rtt;
 connection backup;
-BACKUP SERVER TO 'target_directory' 4 CONCURRENT;
+BACKUP SERVER TO 'target_directory' OPTIONS CONCURRENT=4;
 connection default;
 connection rename;
 CREATE TABLE rt(a INT PRIMARY KEY) ENGINE=InnoDB;

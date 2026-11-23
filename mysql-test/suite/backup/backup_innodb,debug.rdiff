@@ -7,7 +7,7 @@
 +SET DEBUG_SYNC='innodb_backup_start SIGNAL start WAIT_FOR resume';
  connect rename,localhost,root;
 +connection backup;
-+BACKUP SERVER TO 'target_directory' 4 CONCURRENT;
++BACKUP SERVER TO 'target_directory' OPTIONS CONCURRENT=4;
 +connection default;
 +SET DEBUG_SYNC='now WAIT_FOR start';
 +connection rename;
@@ -35,7 +35,7 @@
 +SET DEBUG_SYNC='innodb_backup_start SIGNAL start WAIT_FOR resume';
 +connect rename,localhost,root;
  connection backup;
- BACKUP SERVER TO 'target_directory' 4 CONCURRENT;
+ BACKUP SERVER TO 'target_directory' OPTIONS CONCURRENT=4;
  connection default;
 +SET DEBUG_SYNC='now WAIT_FOR start';
  connection rename;

@@ -38,8 +38,8 @@ static bool backup_execute(THD *thd, const char *target, const char *command,
    using multiple CONCURRENT threads, each one writing to the target
    directory or its own tar stream.
 
-   BACKUP SERVER TO '/path/to/directory' [ 1 CONCURRENT ];
-   BACKUP SERVER WITH [ 1 CONCURRENT ] 'command';
+   BACKUP SERVER TO '/path/to/directory' [ OPTIONS CONCURRENT=1 ];
+   BACKUP SERVER WITH 'command' [ OPTIONS CONCURRENT=1 ];
 
    The operation is divided into multiple stages; @see backup_stages
 
