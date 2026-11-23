@@ -45,7 +45,6 @@ while ($i <= 5)
   --echo # innodb_extended_buffer_pool_admission_pct = $pct
   --eval SET GLOBAL innodb_extended_buffer_pool_admission_pct = $pct
 
-  SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
   CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 
   SELECT variable_value INTO @prev_flushed
@@ -57,7 +56,6 @@ while ($i <= 5)
 
   INSERT INTO t SELECT seq FROM seq_1_to_15;
 
-  SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
   # Returns after two page cleaner batches have completed.
   SET GLOBAL innodb_force_LRU_eviction = TRUE;
 

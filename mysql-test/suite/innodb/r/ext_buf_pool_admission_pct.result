@@ -11,7 +11,6 @@ SET GLOBAL innodb_limit_optimistic_insert_debug = 3;
 SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_count_io_only_for_t';
 # innodb_extended_buffer_pool_admission_pct = 100
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 100;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 SELECT variable_value INTO @prev_flushed
 FROM information_schema.global_status
@@ -20,7 +19,6 @@ SELECT variable_value INTO @prev_reads
 FROM information_schema.global_status
 WHERE variable_name = 'INNODB_EXT_BUFFER_POOL_READS';
 INSERT INTO t SELECT seq FROM seq_1_to_15;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value - @prev_flushed AS admitted
 FROM information_schema.global_status
@@ -38,7 +36,6 @@ read_from_ebp
 DROP TABLE t;
 # innodb_extended_buffer_pool_admission_pct = 80
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 80;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 SELECT variable_value INTO @prev_flushed
 FROM information_schema.global_status
@@ -47,7 +44,6 @@ SELECT variable_value INTO @prev_reads
 FROM information_schema.global_status
 WHERE variable_name = 'INNODB_EXT_BUFFER_POOL_READS';
 INSERT INTO t SELECT seq FROM seq_1_to_15;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value - @prev_flushed AS admitted
 FROM information_schema.global_status
@@ -60,7 +56,6 @@ COUNT(*)	SUM(a)
 DROP TABLE t;
 # innodb_extended_buffer_pool_admission_pct = 50
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 50;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 SELECT variable_value INTO @prev_flushed
 FROM information_schema.global_status
@@ -69,7 +64,6 @@ SELECT variable_value INTO @prev_reads
 FROM information_schema.global_status
 WHERE variable_name = 'INNODB_EXT_BUFFER_POOL_READS';
 INSERT INTO t SELECT seq FROM seq_1_to_15;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value - @prev_flushed AS admitted
 FROM information_schema.global_status
@@ -82,7 +76,6 @@ COUNT(*)	SUM(a)
 DROP TABLE t;
 # innodb_extended_buffer_pool_admission_pct = 30
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 30;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 SELECT variable_value INTO @prev_flushed
 FROM information_schema.global_status
@@ -91,7 +84,6 @@ SELECT variable_value INTO @prev_reads
 FROM information_schema.global_status
 WHERE variable_name = 'INNODB_EXT_BUFFER_POOL_READS';
 INSERT INTO t SELECT seq FROM seq_1_to_15;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value - @prev_flushed AS admitted
 FROM information_schema.global_status
@@ -104,7 +96,6 @@ COUNT(*)	SUM(a)
 DROP TABLE t;
 # innodb_extended_buffer_pool_admission_pct = 0
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 0;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 CREATE TABLE t (a INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 SELECT variable_value INTO @prev_flushed
 FROM information_schema.global_status
@@ -113,7 +104,6 @@ SELECT variable_value INTO @prev_reads
 FROM information_schema.global_status
 WHERE variable_name = 'INNODB_EXT_BUFFER_POOL_READS';
 INSERT INTO t SELECT seq FROM seq_1_to_15;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value - @prev_flushed AS admitted
 FROM information_schema.global_status

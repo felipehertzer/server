@@ -5,7 +5,6 @@ SET GLOBAL innodb_limit_optimistic_insert_debug = 3;
 SET @old_admission_pct = @@GLOBAL.innodb_extended_buffer_pool_admission_pct;
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = 100;
 SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_count_io_only_for_t';
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for encrypted ROW_FORMAT=COMPRESSED table               #
 ###################################################################
@@ -36,7 +35,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -89,7 +87,6 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for unencrypted ROW_FORMAT=COMPRESSED table             #
 ###################################################################
@@ -120,7 +117,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -173,7 +169,6 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for unencrypted uncompressed table                      #
 ###################################################################
@@ -204,7 +199,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -257,7 +251,6 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for encrypted uncompressed table                        #
 ###################################################################
@@ -288,7 +281,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -341,7 +333,6 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for unencrypted PAGE_COMPRESSED=1 table                 #
 ###################################################################
@@ -372,7 +363,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -425,7 +415,6 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
-SET GLOBAL DEBUG_DBUG='+d,ib_ext_bp_disable_LRU_eviction_for_t';
 ###################################################################
 # Testing for encrypted PAGE_COMPRESSED=1 table                   #
 ###################################################################
@@ -456,7 +445,6 @@ INSERT INTO t SET a = @start_val+9;
 INSERT INTO t SET a = @start_val+10;
 INSERT INTO t SET a = @start_val+11;
 INSERT INTO t SET a = @start_val+12;
-SET GLOBAL DEBUG_DBUG='-d,ib_ext_bp_disable_LRU_eviction_for_t';
 SET GLOBAL innodb_force_LRU_eviction = TRUE;
 SELECT variable_value-@prev_flushed_gs
 FROM information_schema.global_status
@@ -509,5 +497,19 @@ FROM INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
 NUMBER_PAGES_READ_FROM_EXTERNAL_BUFFER_POOL-@prev_reads_ps
 7
 DROP TABLE t;
+#
+# MDEV-31956: a clean page that could not be written to the extended
+# buffer pool must still be evicted. In buf_flush_LRU_list_batch(), the
+# buf_page_t::flush(space, true) failure path calls buf_LRU_free_page()
+# while the page is still U-latched, so can_relocate() is false and the
+# free silently does nothing -- yet the page is counted in n->evicted.
+#
+# Write test/t's pages out without evicting them, so that the forced
+# batch below finds them as clean eviction candidates.
+# Now make every extended buffer pool slot allocation fail, so that
+# buf_page_t::flush(space, true) returns false with the page still
+# U-latched, and force LRU eviction.
+# Pages counted as LRU-freed must really have left the buffer pool.
+# ok
 SET GLOBAL innodb_extended_buffer_pool_admission_pct = @old_admission_pct;
 disconnect prevent_purge;
